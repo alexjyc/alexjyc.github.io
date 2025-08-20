@@ -1,0 +1,11 @@
+---
+import Layout from '../layouts/layout.astro';
+import Entry from '../components/entry.astro';
+import { getEntry } from 'astro:content';
+
+const entry = await getEntry('projects', 'sample')!;
+---
+
+<Layout title="Alex Jeon">
+  <Entry entry={entry} />
+</Layout>

@@ -1,0 +1,18 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import Prose from './prose.astro';
+
+interface Props {
+    entry: CollectionEntry<'profile'> | CollectionEntry<'projects'>;
+}
+
+const { entry } = Astro.props;
+
+const { Content } = await entry.render();
+---
+
+<div class="max-sm:mt-4">
+    <Prose>
+        <Content />
+    </Prose>
+</div>
