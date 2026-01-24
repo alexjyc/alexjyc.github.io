@@ -1,0 +1,569 @@
+---
+// Dandelion Puffs - Canvas 2D animation with scroll-triggered floating puffs
+---
+
+<canvas id="gradient-blob"></canvas>
+
+<script>
+  interface Puff {
+    x: number;
+    y: number;
+    angle: number;
+    phi: number;
+    distance: number;
+    z: number; // For sorting
+    detached: boolean;
+    velocity: { x: number; y: number };
+    opacity: number;
+    size: number;
+    rotation: number;
+    rotationSpeed: number;
+    swayOffset: number;
+    swaySpeed: number;
+    turbulenceSeed: number;
+    baseRotationSpeed: number;
+    age: number;
+  }
+
+  const colors = {
+    stem: 'rgba(120, 125, 135, 0.25)',           // Brushed titanium stem
+    puff: 'rgba(200, 205, 215, 0.9)',             // Frosted silver core
+    puffHighlight: 'rgba(235, 240, 250, 0.95)',   // Bright silver highlight
+    filament: 'rgba(160, 170, 190, 0.7)',         // Cool silver filaments
+    filamentTip: 'rgba(140, 170, 220, 0.85)',     // Sapphire blue tips - the kick
+    glow: 'rgba(180, 200, 240, 0.12)',            // Subtle blue-silver glow
+    accent: 'rgba(100, 140, 200, 0.5)'            // Deep sapphire accent
+  };
+
+  class DandelionCanvas {
+    private canvas: HTMLCanvasElement;
+    private ctx: CanvasRenderingContext2D;
+    private puffs: Puff[] = [];
+    private animationId: number | null = null;
+    private isVisible: boolean = true;
+    private time: number = 0;
+    private headShakeX: number = 0;
+    private headShakeY: number = 0;
+    private attachedPuffCount: number = 0; // Will be set after TOTAL_PUFFS is defined
+
+    // Dandelion position (will be calculated based on viewport)
+    private headX: number = 0;
+    private headY: number = 0;
+    private stemBaseX: number = 0;
+    private stemBaseY: number = 0;
+
+    // Scroll tracking
+    private lastScrollY: number = 0;
+    private scrollVelocity: number = 0;
+    private totalScrolled: number = 0;
+    private puffsDetached: number = 0;
+
+    // Configuration
+    private readonly TOTAL_PUFFS = 80; // Increased for fuller head
+    private readonly PUFF_DETACH_THRESHOLD = 50; // Scroll pixels per puff detach
+
+    constructor(canvas: HTMLCanvasElement) {
+      this.canvas = canvas;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Could not get 2D context');
+      this.ctx = ctx;
+
+      this.setupCanvas();
+      this.initPuffs();
+      this.attachedPuffCount = this.TOTAL_PUFFS; // Initialize after class is ready
+
+      window.addEventListener('resize', this.onResize.bind(this));
+      window.addEventListener('scroll', this.onScroll.bind(this), { passive: true });
+      document.addEventListener('visibilitychange', this.onVisibilityChange.bind(this));
+
+      this.animate();
+    }
+
+    private setupCanvas(): void {
+      const dpr = Math.min(window.devicePixelRatio, 2);
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      this.canvas.width = width * dpr;
+      this.canvas.height = height * dpr;
+      this.canvas.style.width = `${width}px`;
+      this.canvas.style.height = `${height}px`;
+
+      this.ctx.scale(dpr, dpr);
+
+      // Position dandelion on right side
+      this.headX = width * 0.75;
+      this.headY = height * 0.35;
+      this.stemBaseX = width * 0.78;
+      this.stemBaseY = height + 50;
+    }
+
+    private initPuffs(): void {
+      this.puffs = [];
+
+      for (let i = 0; i < this.TOTAL_PUFFS; i++) {
+        // Distribute puffs in a spherical pattern around the head
+        const phi = Math.acos(1 - 2 * (i + 0.5) / this.TOTAL_PUFFS);
+        const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+
+        const angle = theta;
+        const distance = 100 + Math.sin(phi) * 20; // Increased head sphere size
+
+        this.puffs.push({
+          x: this.headX + Math.cos(angle) * Math.sin(phi) * distance,
+          y: this.headY + Math.sin(angle) * Math.sin(phi) * distance * 0.6 - Math.cos(phi) * 20,
+          angle: angle,
+          phi: phi,
+          distance: distance,
+          z: 0,
+          detached: false,
+          velocity: { x: 0, y: 0 },
+          opacity: 1,
+          size: 3 + Math.random() * 2,
+          rotation: Math.random() * Math.PI * 2,
+          rotationSpeed: (Math.random() - 0.5) * 0.002, // Much slower rotation
+          swayOffset: Math.random() * Math.PI * 2,
+          swaySpeed: 0.5 + Math.random() * 0.5,
+          turbulenceSeed: Math.random() * 1000,
+          baseRotationSpeed: (Math.random() - 0.5) * 0.001, // Very slow base rotation
+          age: 0
+        });
+      }
+    }
+
+    private onResize(): void {
+      this.setupCanvas();
+      // Reinitialize puffs with new positions
+      const attachedCount = this.puffs.filter(p => !p.detached).length;
+      const detachedPuffs = this.puffs.filter(p => p.detached);
+
+      this.initPuffs();
+
+      // Restore detached state
+      const toDetach = this.TOTAL_PUFFS - attachedCount;
+      for (let i = 0; i < toDetach && i < this.puffs.length; i++) {
+        this.puffs[i].detached = true;
+        this.puffs[i].opacity = 0;
+      }
+
+      // Merge back floating puffs
+      detachedPuffs.forEach((p, i) => {
+        if (i < toDetach) {
+          this.puffs[i] = p;
+        }
+      });
+    }
+
+    private onScroll(): void {
+      const currentScrollY = window.scrollY;
+      this.scrollVelocity = currentScrollY - this.lastScrollY;
+      this.lastScrollY = currentScrollY;
+
+      // Track total scroll for puff detachment
+      if (this.scrollVelocity > 0) {
+        this.totalScrolled += this.scrollVelocity;
+
+        // Detach puffs based on scroll amount
+        const shouldDetach = Math.floor(this.totalScrolled / this.PUFF_DETACH_THRESHOLD);
+
+        while (this.puffsDetached < shouldDetach && this.puffsDetached < this.TOTAL_PUFFS) {
+          this.detachPuff();
+        }
+      }
+    }
+
+    private detachPuff(): void {
+      // Find an attached puff to detach
+      const attachedPuffs = this.puffs.filter(p => !p.detached);
+      if (attachedPuffs.length === 0) return;
+
+      // Pick a random attached puff
+      const puff = attachedPuffs[Math.floor(Math.random() * attachedPuffs.length)];
+      puff.detached = true;
+
+      // Give it initial velocity (upward and slightly outward)
+      const angle = puff.angle + (Math.random() - 0.5) * 0.5;
+      const speed = 0.5 + Math.random() * 1;
+      puff.velocity = {
+        x: Math.cos(angle) * speed + (Math.random() - 0.5) * 0.5,
+        y: -1.5 - Math.random() * 1 // Upward bias
+      };
+
+      this.puffsDetached++;
+      this.attachedPuffCount = this.puffs.filter(p => !p.detached).length;
+    }
+
+    private onVisibilityChange(): void {
+      this.isVisible = !document.hidden;
+    }
+
+    private drawStem(): void {
+      const ctx = this.ctx;
+
+      // Calculate shake intensity - more dramatic base movement
+      const idleShake = 1.8; // Increased from 0.8
+      const weightRatio = this.attachedPuffCount / this.TOTAL_PUFFS;
+      const weightShake = (1 - weightRatio) * 3.0;
+      const totalShake = idleShake + weightShake;
+
+      // Multi-frequency wind simulation - like natural gusts
+      // Primary slow sway (main wind direction)
+      const primarySway = Math.sin(this.time * 0.4) * totalShake * 8;
+      // Secondary cross-breeze
+      const secondarySway = Math.sin(this.time * 0.9 + Math.PI / 3) * totalShake * 4;
+      // Quick flutter (like leaves rustling)
+      const flutter = Math.sin(this.time * 2.5) * totalShake * 1.5;
+      // Random gust simulation
+      const gust = Math.sin(this.time * 0.15) * Math.sin(this.time * 1.7) * totalShake * 5;
+
+      // Apply shake to control point - more dramatic bend
+      const baseControlX = this.stemBaseX - 35;
+      const baseControlY = (this.stemBaseY + this.headY) / 2;
+      const shakenControlX = baseControlX + primarySway + flutter + gust * 0.5;
+      const shakenControlY = baseControlY + secondarySway * 0.5;
+
+      // Head shake (stored for puff attachment) - more movement
+      this.headShakeX = primarySway * 0.8 + secondarySway * 0.4 + gust * 0.6;
+      this.headShakeY = secondarySway * 0.6 + flutter * 1.2;
+
+      const shakenHeadX = this.headX + this.headShakeX;
+      const shakenHeadY = this.headY + this.headShakeY;
+
+      // Premium stem: tapered gradient that fades elegantly
+      // Draw in segments for proper taper and gradient
+      const segments = 40;
+      
+      for (let i = 0; i < segments; i++) {
+        const t0 = i / segments;
+        const t1 = (i + 1) / segments;
+        
+        // Quadratic bezier interpolation
+        const getPoint = (t: number) => {
+          const mt = 1 - t;
+          return {
+            x: mt * mt * this.stemBaseX + 2 * mt * t * shakenControlX + t * t * shakenHeadX,
+            y: mt * mt * this.stemBaseY + 2 * mt * t * shakenControlY + t * t * shakenHeadY
+          };
+        };
+        
+        const p0 = getPoint(t0);
+        const p1 = getPoint(t1);
+        
+        // Taper: thicker at base (1.8px), hair-thin at top (0.3px)
+        const lineWidth = 1.8 * (1 - t1 * 0.85);
+        
+        // Fade: solid at base, nearly invisible at head
+        const alpha = 0.3 * (1 - t1 * 0.9);
+        
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
+        ctx.strokeStyle = `rgba(100, 105, 115, ${alpha})`;
+        ctx.lineWidth = lineWidth;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+      
+      // Subtle glow at base for grounding
+      const baseGlow = ctx.createRadialGradient(
+        this.stemBaseX, this.stemBaseY - 20, 0,
+        this.stemBaseX, this.stemBaseY - 20, 30
+      );
+      baseGlow.addColorStop(0, 'rgba(140, 160, 190, 0.08)');
+      baseGlow.addColorStop(1, 'rgba(140, 160, 190, 0)');
+      ctx.beginPath();
+      ctx.arc(this.stemBaseX, this.stemBaseY - 20, 30, 0, Math.PI * 2);
+      ctx.fillStyle = baseGlow;
+      ctx.fill();
+    }
+
+    private drawPuff(puff: Puff): void {
+      const ctx = this.ctx;
+
+      if (puff.opacity <= 0) return;
+
+      ctx.save();
+      ctx.translate(puff.x, puff.y);
+      ctx.rotate(puff.rotation);
+      ctx.globalAlpha = puff.opacity;
+
+      // Calculate scale based on Z
+      const scale = 0.5 + ((puff.z + 50) / 100) * 0.8; // Reverted to smaller scale, adjusted for larger Z range
+      ctx.scale(scale, scale);
+
+      const baseRadius = 8 + puff.size * 1.2; // Reverted to smaller base radius
+      const numFilaments = 24;
+
+      // 1. Draw subtle blue-silver glow behind the puff
+      const glowGradient = ctx.createRadialGradient(0, -2, 0, 0, -2, baseRadius * 1.5);
+      glowGradient.addColorStop(0, 'rgba(180, 200, 240, 0.18)');
+      glowGradient.addColorStop(0.4, 'rgba(160, 180, 220, 0.08)');
+      glowGradient.addColorStop(0.7, 'rgba(140, 160, 200, 0.03)');
+      glowGradient.addColorStop(1, 'rgba(140, 160, 200, 0)');
+      ctx.beginPath();
+      ctx.arc(0, -2, baseRadius * 1.6, 0, Math.PI * 2);
+      ctx.fillStyle = glowGradient;
+      ctx.fill();
+
+      // 2. Draw filaments to create filled sphere appearance
+      // Use multiple layers with radius ranges to fill the volume
+      const layers = [
+        { count: 12, radiusMin: 0.3, radiusMax: 0.5 },   // Inner core
+        { count: 18, radiusMin: 0.5, radiusMax: 0.8 },   // Middle layer
+        { count: 40, radiusMin: 0.9, radiusMax: 1.0 },   // Outer surface - uniform length for circular look
+      ];
+
+      // Simple seeded random for consistent positions per filament
+      const seededRandom = (seed: number) => {
+        const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+        return x - Math.floor(x);
+      };
+
+      let globalIndex = 0;
+      layers.forEach((layer) => {
+        for (let i = 0; i < layer.count; i++) {
+          // Fibonacci sphere point distribution for this layer
+          const phi = Math.acos(1 - 2 * (i + 0.5) / layer.count);
+          const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+
+          // Full 3D sphere coordinates
+          const sphereX = Math.sin(phi) * Math.cos(theta);
+          const sphereY = Math.sin(phi) * Math.sin(theta);
+          const sphereZ = Math.cos(phi); // depth (-1 to 1)
+
+          // Vary radius within layer's range for volume fill (not shells)
+          const radiusVariation = seededRandom(globalIndex + puff.size * 100);
+          const radiusScale = layer.radiusMin + radiusVariation * (layer.radiusMax - layer.radiusMin);
+          const filamentLength = baseRadius * radiusScale;
+
+          // Project 3D to 2D: use X and Y for screen position, Z for depth effects
+          const endX = sphereX * filamentLength;
+          const endY = -sphereY * filamentLength - 2;  // Y maps to screen Y
+
+          // Depth factor affects opacity/size (back filaments slightly smaller/fainter)
+          const depthFactor = 0.7 + (sphereZ + 1) * 0.15; // 0.7 to 1.0
+
+          globalIndex++;
+
+          // Draw tapered filament (thicker at base, thinner at tip)
+          const segments = 3;
+          for (let s = 0; s < segments; s++) {
+            const t0 = s / segments;
+            const t1 = (s + 1) / segments;
+
+            const x0 = endX * t0 * 0.2; // Extended filament visible length
+            const y0 = endY * t0 * 0.2;
+            const x1 = endX * (0.2 + t1 * 0.8);
+            const y1 = endY * (0.2 + t1 * 0.8);
+
+            ctx.beginPath();
+            ctx.moveTo(x0, y0);
+            ctx.lineTo(x1, y1);
+
+            // Taper: thicker at base, thinner at tip
+            const lineWidth = (1.2 - (t1 * 0.7)) * depthFactor;
+            ctx.lineWidth = lineWidth;
+
+            // Silver filaments with subtle blue tint near tips
+            const alpha = (1 - (t1 * 0.2)) * depthFactor;
+            const blueShift = t1 * 30; // More blue towards tip
+            ctx.strokeStyle = `rgba(${160 - blueShift}, ${170 - blueShift * 0.3}, ${190 + blueShift}, ${alpha * 0.75})`;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+          }
+
+          // Sapphire blue dot at filament tip - the luxury accent
+          const dotSize = (0.6 + radiusScale * 0.4) * depthFactor;
+          ctx.beginPath();
+          ctx.arc(endX, endY, dotSize, 0, Math.PI * 2);
+          ctx.fillStyle = colors.filamentTip;
+          ctx.fill();
+        }
+      });
+
+      // 3. Draw small seed oval at bottom (increased size)
+      const seedY = baseRadius * 0.4;
+      ctx.beginPath();
+      ctx.ellipse(0, seedY, 2, 4, 0, 0, Math.PI * 2);
+      ctx.fillStyle = colors.stem;
+      ctx.fill();
+
+      // 4. Draw thin stalk connecting seed to puff center
+      ctx.beginPath();
+      ctx.moveTo(0, seedY - 2.5);
+      ctx.lineTo(0, 0);
+      ctx.strokeStyle = colors.stem;
+      ctx.lineWidth = 0.7;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    private updatePuffs(): void {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      this.puffs.forEach(puff => {
+        if (puff.detached) {
+          puff.age += 0.016;
+
+          // Multi-octave turbulence (X, Y, Z)
+          const turbulenceX = (
+            Math.sin(puff.x * 0.01 + this.time * 0.3 + puff.turbulenceSeed) * 0.5 +
+            Math.sin(puff.y * 0.015 + this.time * 0.4 + puff.turbulenceSeed * 1.3) * 0.3 +
+            Math.sin((puff.x + puff.y) * 0.008 + this.time * 0.2 + puff.turbulenceSeed * 0.7) * 0.2
+          );
+
+          const turbulenceY = (
+            Math.sin((puff.x + 100) * 0.01 + this.time * 0.25 + puff.turbulenceSeed + 5) * 0.5 +
+            Math.sin((puff.y + 50) * 0.012 + this.time * 0.35 + puff.turbulenceSeed * 1.1) * 0.3 +
+            Math.sin((puff.x - puff.y) * 0.009 + this.time * 0.18 + puff.turbulenceSeed * 0.9) * 0.2
+          );
+
+          const turbulenceZ = (
+            Math.sin((puff.x + 200) * 0.008 + this.time * 0.28 + puff.turbulenceSeed + 10) * 0.5 +
+            Math.sin((puff.y + 150) * 0.011 + this.time * 0.32 + puff.turbulenceSeed * 1.2) * 0.3 +
+            Math.sin((puff.x + puff.y + 100) * 0.007 + this.time * 0.22 + puff.turbulenceSeed * 0.8) * 0.2
+          );
+
+          // Wind forces (size-dependent)
+          const sizeFactor = 1 / (puff.size * 0.5);
+          const windStrength = 0.03 + sizeFactor * 0.02;
+
+          const windX = turbulenceX * windStrength;
+          const windY = turbulenceY * windStrength * 0.6;
+          const windZ = turbulenceZ * windStrength * 0.4;
+
+          // Buoyancy vs gravity
+          const buoyancy = 0.008 * (1 / puff.size);
+          const gravity = 0.002 * puff.size;
+          const netVertical = buoyancy - gravity;
+
+          // Apply forces
+          puff.velocity.x += windX;
+          puff.velocity.y += windY + netVertical;
+
+          // Variable air resistance
+          const dragCoeff = 0.47;
+          const airResistance = 1 - (dragCoeff * puff.size * 0.0012);
+          puff.velocity.x *= airResistance;
+          puff.velocity.y *= airResistance;
+
+          // Update position
+          puff.x += puff.velocity.x;
+          puff.y += puff.velocity.y;
+          puff.z += windZ * 10; // Z-axis drift
+
+          // Very gentle rotation - dandelion seeds float gracefully, don't spin
+          const velocityMag = Math.sqrt(
+            puff.velocity.x * puff.velocity.x +
+            puff.velocity.y * puff.velocity.y
+          );
+          puff.rotationSpeed = puff.baseRotationSpeed + velocityMag * 0.005; // Dramatically reduced
+          puff.rotation += puff.rotationSpeed;
+
+          // Fade out
+          if (puff.y < -50 || puff.x < -50 || puff.x > width + 50) {
+            puff.opacity -= 0.02;
+          }
+          if (puff.age > 30) {
+            puff.opacity -= 0.005;
+          }
+        } else {
+          // Attached puffs move together with the head
+          const baseX = this.headX + Math.cos(puff.angle) * Math.sin(puff.phi) * puff.distance;
+          const baseY = this.headY + Math.sin(puff.angle) * Math.sin(puff.phi) * puff.distance * 0.6 - Math.cos(puff.phi) * 20;
+
+          // Z is static based on position
+          puff.z = Math.cos(puff.phi) * puff.distance;
+
+          // Individual puff micro-movements - each responds slightly differently to wind
+          const windPhase = puff.swayOffset;
+          const microSwayX = Math.sin(this.time * 0.5 + windPhase) * 2.5 +
+                            Math.sin(this.time * 1.3 + windPhase * 1.5) * 1.0;
+          const microSwayY = Math.cos(this.time * 0.4 + windPhase) * 1.8 +
+                            Math.sin(this.time * 1.8 + windPhase * 0.7) * 0.8;
+
+          // Distance from center affects sway amount (outer puffs move more)
+          const distanceFactor = puff.distance / 100;
+
+          puff.x = baseX + this.headShakeX + microSwayX * distanceFactor;
+          puff.y = baseY + this.headShakeY + microSwayY * distanceFactor;
+
+          // Subtle rotation following wind
+          puff.rotation = Math.sin(this.time * 0.3 + windPhase * 0.5) * 0.08;
+        }
+      });
+
+      // Respawn puffs when all have faded away
+      const allGone = this.puffs.every(p => p.detached && p.opacity <= 0);
+      if (allGone) {
+        this.initPuffs();
+        this.puffsDetached = 0;
+        this.totalScrolled = 0;
+      }
+    }
+
+    private animate(): void {
+      this.animationId = requestAnimationFrame(this.animate.bind(this));
+
+      if (!this.isVisible) return;
+
+      this.time += 0.016; // ~60fps
+
+      const ctx = this.ctx;
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      // Clear canvas
+      ctx.clearRect(0, 0, width, height);
+
+      // Draw stem
+      this.drawStem();
+
+      // Update and draw puffs
+      this.updatePuffs();
+
+      // Sort portions by Z (detached are usually in front, but attached need sorting)
+      // Actually we should sort ALL puffs by Z to get proper occlusion if mixed?
+      // But detached go in front usually. Let's sort attached by Z.
+      const attached = this.puffs.filter(p => !p.detached);
+      const detached = this.puffs.filter(p => p.detached);
+
+      attached.sort((a, b) => a.z - b.z);
+
+      // Draw attached puffs first (sorted back to front)
+      attached.forEach(p => this.drawPuff(p));
+      // Then detached
+      detached.forEach(p => this.drawPuff(p));
+    }
+
+    public dispose(): void {
+      if (this.animationId) {
+        cancelAnimationFrame(this.animationId);
+      }
+      window.removeEventListener('resize', this.onResize.bind(this));
+      window.removeEventListener('scroll', this.onScroll.bind(this));
+      document.removeEventListener('visibilitychange', this.onVisibilityChange.bind(this));
+    }
+  }
+
+  // Initialize when DOM is ready
+  const canvas = document.getElementById('gradient-blob') as HTMLCanvasElement;
+  if (canvas) {
+    new DandelionCanvas(canvas);
+  }
+</script>
+
+<style>
+  #gradient-blob {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    pointer-events: none;
+  }
+</style>

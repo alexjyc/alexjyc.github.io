@@ -1,5 +1,6 @@
 ---
 import "../css/main.css";
+import GradientBlob from "../components/GradientBlob.astro";
 
 export interface Props {
   title: string;
@@ -12,36 +13,18 @@ const { title } = Astro.props;
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#f5f5f7" />
     <title>{title}</title>
     <meta property="og:title" content={title} />
     <meta property="og:site_name" content="Alex Jeon" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
+    <meta name="description" content="AI engineer and researcher. Columbia University, Stanford AI Lab, Microsoft Research." />
   </head>
-  <body class="antialiased">
-    <div 
-      class:list={[
-        "grid grid-rows-[max-content_1fr] sm:grid-rows-none sm:grid-cols-[max-content_minmax(0,540px)] sm:gap-x-22",
-        "sm:max-w-max sm:ml-8 min-h-dvh",
-      ]}
-    >
-      <nav class="h-max max-sm:flex max-sm:items-end max-sm:gap-x-6 sm:sticky sm:top-0 sm:pt-16 pl-6 max-sm:pl-11 max-sm:pr-11 max-sm:pt-12">
-        <ul class="sm:mt-5 space-x-2 sm:space-x-0">
-          <li class:list={["max-sm:inline-block"]}><a href="/" class="nav-link">About</a></li>
-          <li class:list={["max-sm:inline-block"]}><a href="/projects" class="nav-link">Projects</a></li>
-          <li class:list={["max-sm:inline-block"]}><a href="https://www.linkedin.com/in/alexjyc/" class="external-link">Linkedin</a></li>
-          <li class:list={["max-sm:inline-block"]}><a href="mailto:alexjyc3@gmail.com" class="external-link">Email</a></li>
-        </ul>
-      </nav>
-      <main class="max-sm:pt-6 sm:pt-16 flex flex-col max-sm:pl-10 max-sm:pr-11">
-        <slot />
-      </main>
-    </div>
+  <body>
+    <GradientBlob />
+    <main class="container">
+      <slot />
+    </main>
   </body>
 </html>

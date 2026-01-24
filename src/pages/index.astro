@@ -1,11 +1,97 @@
 ---
 import Layout from '../layouts/layout.astro';
-import Entry from '../components/entry.astro';
-import { getEntry } from 'astro:content';
-
-const entry = await getEntry('profile', 'index')!;
 ---
 
 <Layout title="Alex Jeon">
-  <Entry entry={entry} />
+
+  <h1 class="name">Alex Jeon</h1>
+
+  <section class="bio">
+    <p>
+      I build AI systems that solve real problems.
+      Currently a graduate researcher at Columbia Business School.
+    </p>
+  </section>
+
+  <div class="section-divider">
+    <span class="section-label">Experience</span>
+    <div class="divider-line"></div>
+  </div>
+
+  <section class="experience">
+    <div class="experience-item">
+      <div class="company">Columbia University</div>
+      <div class="meta">Graduate Research · 2025–</div>
+      <p>AI-driven discoveries through Adaptive Experimentation</p>
+    </div>
+
+    <div class="experience-item">
+      <div class="company">Arklex AI</div>
+      <div class="meta">ML Engineer · 2025</div>
+      <p>Document processing infrastructure</p>
+    </div>
+
+    <div class="experience-item">
+      <div class="company">Northeastern × Microsoft</div>
+      <div class="meta">Research Engineer · 2024–2025</div>
+      <p>AI-mediated interfaces for frontline workers</p>
+    </div>
+
+    <div class="experience-item">
+      <div class="company">Stanford AI Lab</div>
+      <div class="meta">Research Assistant · 2024–2025</div>
+      <p>Distributed multi-agent systems for code-conflict resolution</p>
+    </div>
+
+    <div class="experience-item">
+      <div class="company">Stanford Design Research</div>
+      <div class="meta">Software Engineer · 2023</div>
+      <p>AI-driven product analytics</p>
+    </div>
+  </section>
+
+  <div class="section-divider">
+    <span class="section-label">Projects</span>
+    <div class="divider-line"></div>
+  </div>
+
+  <section class="projects">
+    <div class="project-item">
+      <div class="project-name">Haroo</div>
+      <p>AI-driven journal with TextToSQL agent</p>
+    </div>
+
+    <div class="project-item">
+      <div class="project-name">CoEvo</div>
+      <p>RAG staged optimization pipeline</p>
+    </div>
+
+    <a href="https://arxiv.org/abs/2411.02408" target="_blank" class="project-item">
+      <div class="project-name">AI On My Shoulders</div>
+      <p>Supporting Emotional Labor in Front-Office Roles with an LLM-based Empathetic Coworker</p>
+    </a>
+
+    <div class="project-item">
+      <div class="project-name">Moko</div>
+      <p>Q&A for international job seekers</p>
+    </div>
+
+    <a href="https://www.potenciainc.org/" target="_blank" class="project-item">
+      <div class="project-name">Potencia</div>
+      <p>Student-tutor scheduling platform</p>
+    </a>
+  </section>
+
+  <footer>
+    <div class="links">
+      <a href="https://github.com/alexjyc" target="_blank">github</a>
+      <span class="separator">·</span>
+      <a href="https://www.linkedin.com/in/alexjyc/" target="_blank">linkedin</a>
+      <span class="separator">·</span>
+      <a href="mailto:alexjyc3@gmail.com">email</a>
+      <span class="separator">·</span>
+      <a href="https://calendly.com/alexjyc3/30min?month=2026-01">calendly</a>
+    </div>
+  </footer>
+
 </Layout>
