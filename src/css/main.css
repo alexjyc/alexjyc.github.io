@@ -104,25 +104,33 @@ body {
     margin: 0.25rem 0 0 0;
 }
 
-.projects {
+.projects,
+.publications {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
 }
 
-.project-item {
+.publications {
+    margin-bottom: 4rem;
+}
+
+.project-item,
+.publication-item {
     display: flex;
     flex-direction: column;
     gap: 0.125rem;
 }
 
-.project-name {
+.project-name,
+.publication-name {
     font-weight: 500;
     font-size: 1rem;
     color: var(--text);
 }
 
-.project-item p {
+.project-item p,
+.publication-item p {
     font-size: 0.9375rem;
     color: var(--text-secondary);
     margin: 0;

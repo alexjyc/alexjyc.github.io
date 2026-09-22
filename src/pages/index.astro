@@ -9,7 +9,8 @@ import Layout from '../layouts/layout.astro';
   <section class="bio">
     <p>
       I build AI systems that solve real problems.
-      Currently a graduate researcher at Columbia Business School.
+      I'm an MSCS student at Columbia, graduating December 2026.
+      Recently, I worked on agent harness failures at Amazon Fintech.
     </p>
   </section>
 
@@ -20,8 +21,14 @@ import Layout from '../layouts/layout.astro';
 
   <section class="experience">
     <div class="experience-item">
+      <div class="company">Amazon</div>
+      <div class="meta">Software Development Engineer · 2026</div>
+      <p>Self-healing guardrails for LLM agent workflows</p>
+    </div>
+
+    <div class="experience-item">
       <div class="company">Columbia University</div>
-      <div class="meta">Graduate Research · 2025–</div>
+      <div class="meta">Graduate Research · 2025–2026</div>
       <p>AI-driven discoveries through Adaptive Experimentation</p>
     </div>
 
@@ -51,6 +58,23 @@ import Layout from '../layouts/layout.astro';
   </section>
 
   <div class="section-divider">
+    <span class="section-label">Publications</span>
+    <div class="divider-line"></div>
+  </div>
+
+  <section class="publications">
+    <div class="publication-item">
+      <div class="publication-name">Seq@K: Evaluating Language Models Under Sequential Feedback</div>
+      <p>NeurIPS 2026 · Under review</p>
+    </div>
+
+    <a href="https://arxiv.org/abs/2411.02408" target="_blank" class="publication-item">
+      <div class="publication-name">AI on My Shoulder: Supporting Emotional Labor in Front-Office Roles with an LLM-based Empathetic Coworker</div>
+      <p>CHI 2025</p>
+    </a>
+  </section>
+
+  <div class="section-divider">
     <span class="section-label">Projects</span>
     <div class="divider-line"></div>
   </div>
@@ -65,11 +89,6 @@ import Layout from '../layouts/layout.astro';
       <div class="project-name">CoEvo</div>
       <p>RAG staged optimization pipeline</p>
     </div>
-
-    <a href="https://arxiv.org/abs/2411.02408" target="_blank" class="project-item">
-      <div class="project-name">AI On My Shoulders · CHI 2025</div>
-      <p>Supporting Emotional Labor in Front-Office Roles with an LLM-based Empathetic Coworker</p>
-    </a>
 
     <div class="project-item">
       <div class="project-name">Moko</div>
